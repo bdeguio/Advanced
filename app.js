@@ -74,7 +74,7 @@ console.log('Valid flight legs created:', legs.length);
 // ---- SVG / projection setup ----
 const width = 975;
 const height = 610;
-const LEG_DURATION = 260; // ms per leg
+const LEG_DURATION = 900; // ms per leg (increase to slow down, decrease to speed up)
 
 const svg = d3.select('#map')
   .attr('viewBox', '0 0 ' + width + ' ' + height);
@@ -85,10 +85,41 @@ const geoPath = d3.geoPath(projection);
 const gMap = svg.append('g').attr('class', 'map-layer');
 const gLegs = svg.append('g').attr('class', 'legs-layer');
 const gAirports = svg.append('g').attr('class', 'airports-layer');
+const gTrail = svg.append('g').attr('class', 'trail-layer');
 const marker = svg.append('circle')
   .attr('class', 'marker')
   .attr('r', 4.5)
   .style('display', 'none');
+
+// Shooting-star tail: remembers recent marker positions and renders them
+// as shrinking, fading dots behind the bright lead marker.
+const TRAIL_LENGTH = 14;
+let trailPoints = [];
+
+function drawTrail() {
+  const n = trailPoints.length;
+  const sel = gTrail.selectAll('circle.trail-dot').data(trailPoints);
+  sel.enter()
+    .append('circle')
+    .attr('class', 'trail-dot')
+    .merge(sel)
+    .attr('cx', function (d) { return d.x; })
+    .attr('cy', function (d) { return d.y; })
+    .attr('r', function (d, i) { return 1 + (4 * (i + 1)) / n; })
+    .style('opacity', function (d, i) { return (0.85 * (i + 1)) / n; });
+  sel.exit().remove();
+}
+
+function pushTrailPoint(pt) {
+  trailPoints.push({ x: pt.x, y: pt.y });
+  if (trailPoints.length > TRAIL_LENGTH) trailPoints.shift();
+  drawTrail();
+}
+
+function clearTrail() {
+  trailPoints = [];
+  gTrail.selectAll('circle.trail-dot').remove();
+}
 
 const legLabel = document.getElementById('leg-label');
 const progressLabel = document.getElementById('progress-label');
@@ -159,6 +190,7 @@ function setupLeg(index) {
     .node();
   currentLength = currentPathEl.getTotalLength();
   legStartTime = null;
+  clearTrail();
 
   const startPt = currentPathEl.getPointAtLength(0);
   marker.style('display', null).attr('cx', startPt.x).attr('cy', startPt.y);
@@ -173,6 +205,7 @@ function animate(ts) {
   const t = Math.min(elapsed / LEG_DURATION, 1);
   const pt = currentPathEl.getPointAtLength(t * currentLength);
   marker.attr('cx', pt.x).attr('cy', pt.y);
+  pushTrailPoint(pt);
 
   if (t >= 1) {
     d3.select(currentPathEl).attr('class', 'leg-path-dim');
@@ -212,6 +245,7 @@ function restart() {
   currentLegIndex = -1;
   legStartTime = null;
   marker.style('display', 'none');
+  clearTrail();
   if (legs.length) {
     setupLeg(0);
   } else {
