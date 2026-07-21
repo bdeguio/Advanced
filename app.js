@@ -86,8 +86,7 @@ const marker = svg.append('circle')
 // the marker (not by frame), so it reads as one smooth fading bar, not dots.
 const MARKER_DIAMETER = 9; // matches marker r * 2
 const TRAIL_LENGTH_PX = MARKER_DIAMETER * 20; // ~20 marker-diameters long
-const TRAIL_SAMPLES = 24; // points sampled along the bar for a smooth curve
-let trailHeadDistance = 0;
+let trailPoints = []; // {x, y} history of marker positions, trimmed to TRAIL_LENGTH_PX
 
 const trailGradient = svg.append('defs')
   .append('linearGradient')
@@ -104,28 +103,34 @@ const trailRibbon = gTrail.append('path')
   .style('stroke-linecap', 'round')
   .style('stroke-linejoin', 'round');
 
-function drawTrail() {
-  if (!currentPathEl) return;
-  const headDist = trailHeadDistance;
-  const tailDist = Math.max(0, headDist - TRAIL_LENGTH_PX);
-  if (headDist - tailDist < 1) { trailRibbon.attr('d', null); return; }
-
-  const pts = [];
-  for (let i = 0; i <= TRAIL_SAMPLES; i++) {
-    const t = i / TRAIL_SAMPLES; // 0 at tail, 1 at the marker
-    const dist = tailDist + t * (headDist - tailDist);
-    pts.push(currentPathEl.getPointAtLength(dist));
+// Append the marker's current position to the trail history and trim the tail
+// end so the total on-screen length stays around TRAIL_LENGTH_PX. Points persist
+// across leg transitions so the tail flows continuously instead of resetting.
+function pushTrailPoint(pt) {
+  trailPoints.push({ x: pt.x, y: pt.y });
+  let total = 0;
+  for (let i = trailPoints.length - 1; i > 0; i--) {
+    const a = trailPoints[i], b = trailPoints[i - 1];
+    total += Math.hypot(a.x - b.x, a.y - b.y);
+    if (total > TRAIL_LENGTH_PX) {
+      trailPoints = trailPoints.slice(i - 1);
+      return;
+    }
   }
-  const d = 'M' + pts.map(function (p) { return p.x + ',' + p.y; }).join('L');
+}
+
+function drawTrail() {
+  if (trailPoints.length < 2) { trailRibbon.attr('d', null); return; }
+  const d = 'M' + trailPoints.map(function (p) { return p.x + ',' + p.y; }).join('L');
   trailRibbon.attr('d', d);
 
-  const tailPt = pts[0];
-  const headPt = pts[pts.length - 1];
+  const tailPt = trailPoints[0];
+  const headPt = trailPoints[trailPoints.length - 1];
   trailGradient.attr('x1', tailPt.x).attr('y1', tailPt.y).attr('x2', headPt.x).attr('y2', headPt.y);
 }
 
 function clearTrail() {
-  trailHeadDistance = 0;
+  trailPoints = [];
   trailRibbon.attr('d', null);
 }
 
@@ -199,7 +204,6 @@ function setupLeg(index) {
   currentLength = currentPathEl.getTotalLength();
   currentLegDuration = Math.min(MAX_LEG_MS, Math.max(MIN_LEG_MS, currentLength / SPEED_PX_PER_MS));
   legStartTime = null;
-  clearTrail();
 
   const startPt = currentPathEl.getPointAtLength(0);
   marker.style('display', null).attr('cx', startPt.x).attr('cy', startPt.y);
@@ -216,7 +220,7 @@ function animate(ts) {
   const dist = easedT * currentLength;
   const pt = currentPathEl.getPointAtLength(dist);
   marker.attr('cx', pt.x).attr('cy', pt.y);
-  trailHeadDistance = dist;
+  pushTrailPoint(pt);
   drawTrail();
 
   if (rawT >= 1) {
