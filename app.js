@@ -94,11 +94,11 @@ const marker = svg.append('circle')
   .attr('r', 4.5)
   .style('display', 'none');
 
-// Comet-style tail: a single tapered, gradient-filled ribbon sampled by distance
-// behind the marker (not by frame), so it reads as one smooth shape instead of dots.
+// Comet-style tail: a single continuous stroked line sampled by distance behind
+// the marker (not by frame), so it reads as one smooth fading bar, not dots.
 const MARKER_DIAMETER = 9; // matches marker r * 2
 const TRAIL_LENGTH_PX = MARKER_DIAMETER * 20; // ~20 marker-diameters long
-const TRAIL_SAMPLES = 24; // points sampled along the ribbon for a smooth curve
+const TRAIL_SAMPLES = 24; // points sampled along the bar for a smooth curve
 let trailHeadDistance = 0;
 
 const trailGradient = svg.append('defs')
@@ -110,8 +110,11 @@ trailGradient.append('stop').attr('offset', '100%').attr('stop-color', '#ffffff'
 
 const trailRibbon = gTrail.append('path')
   .attr('class', 'trail-ribbon')
-  .style('fill', 'url(#trail-gradient)')
-  .style('stroke', 'none');
+  .style('fill', 'none')
+  .style('stroke', 'url(#trail-gradient)')
+  .style('stroke-width', MARKER_DIAMETER)
+  .style('stroke-linecap', 'round')
+  .style('stroke-linejoin', 'round');
 
 function drawTrail() {
   if (!currentPathEl) return;
@@ -123,20 +126,9 @@ function drawTrail() {
   for (let i = 0; i <= TRAIL_SAMPLES; i++) {
     const t = i / TRAIL_SAMPLES; // 0 at tail, 1 at the marker
     const dist = tailDist + t * (headDist - tailDist);
-    const p = currentPathEl.getPointAtLength(dist);
-    const ahead = currentPathEl.getPointAtLength(Math.min(currentLength, dist + 0.5));
-    let dx = ahead.x - p.x, dy = ahead.y - p.y;
-    const len = Math.hypot(dx, dy) || 1;
-    dx /= len; dy /= len;
-    const nx = -dy, ny = dx;
-    const width = MARKER_DIAMETER * t;
-    pts.push({ x: p.x, y: p.y, nx: nx, ny: ny, width: width });
+    pts.push(currentPathEl.getPointAtLength(dist));
   }
-
-  const left = pts.map(function (p) { return [p.x + p.nx * p.width / 2, p.y + p.ny * p.width / 2]; });
-  const right = pts.map(function (p) { return [p.x - p.nx * p.width / 2, p.y - p.ny * p.width / 2]; }).reverse();
-  const outline = left.concat(right);
-  const d = 'M' + outline.map(function (pt) { return pt[0] + ',' + pt[1]; }).join('L') + 'Z';
+  const d = 'M' + pts.map(function (p) { return p.x + ',' + p.y; }).join('L');
   trailRibbon.attr('d', d);
 
   const tailPt = pts[0];
