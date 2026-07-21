@@ -63,7 +63,7 @@ let legs = [];
 const width = 975;
 const height = 610;
 const SPEED_PX_PER_MS = 0.06; // constant on-screen speed (slow, relaxing screensaver pacing)
-const MIN_LEG_MS = 900;       // shortest allowed leg duration (keeps same-airport hops visible)
+const MIN_LEG_MS = 3000;       // shortest allowed leg duration (keeps same-airport hops visible)
 const MAX_LEG_MS = 9000;      // longest allowed leg duration (keeps very long legs from dragging)
 let currentLegDuration = MIN_LEG_MS;
 
@@ -100,7 +100,7 @@ const trailRibbon = gTrail.append('path')
   .attr('class', 'trail-ribbon')
   .style('fill', 'none')
   .style('stroke', 'url(#trail-gradient)')
-  .style('stroke-width', MARKER_DIAMETER)
+  .style('stroke-width', 4)
   .style('stroke-linecap', 'round')
   .style('stroke-linejoin', 'round');
 
