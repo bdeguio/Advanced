@@ -74,9 +74,9 @@ console.log('Valid flight legs created:', legs.length);
 // ---- SVG / projection setup ----
 const width = 975;
 const height = 610;
-const SPEED_PX_PER_MS = 0.45; // constant on-screen speed (screensaver-style pacing)
-const MIN_LEG_MS = 220;       // shortest allowed leg duration (keeps same-airport hops visible)
-const MAX_LEG_MS = 3200;      // longest allowed leg duration (keeps very long legs from dragging)
+const SPEED_PX_PER_MS = 0.16; // constant on-screen speed (slow, relaxing screensaver pacing)
+const MIN_LEG_MS = 550;       // shortest allowed leg duration (keeps same-airport hops visible)
+const MAX_LEG_MS = 5000;      // longest allowed leg duration (keeps very long legs from dragging)
 let currentLegDuration = MIN_LEG_MS;
 
 const svg = d3.select('#map')
@@ -94,37 +94,59 @@ const marker = svg.append('circle')
   .attr('r', 4.5)
   .style('display', 'none');
 
-// Shooting-star tail: sampled by distance behind the marker (not by frame),
-// so its on-screen length stays constant no matter how fast the marker moves.
+// Comet-style tail: a single tapered, gradient-filled ribbon sampled by distance
+// behind the marker (not by frame), so it reads as one smooth shape instead of dots.
 const MARKER_DIAMETER = 9; // matches marker r * 2
 const TRAIL_LENGTH_PX = MARKER_DIAMETER * 20; // ~20 marker-diameters long
-const TRAIL_DOTS = 26; // dots sampled along the tail for a smooth fade
+const TRAIL_SAMPLES = 24; // points sampled along the ribbon for a smooth curve
 let trailHeadDistance = 0;
+
+const trailGradient = svg.append('defs')
+  .append('linearGradient')
+  .attr('id', 'trail-gradient')
+  .attr('gradientUnits', 'userSpaceOnUse');
+trailGradient.append('stop').attr('offset', '0%').attr('stop-color', '#ffffff').attr('stop-opacity', 0);
+trailGradient.append('stop').attr('offset', '100%').attr('stop-color', '#ffffff').attr('stop-opacity', 0.9);
+
+const trailRibbon = gTrail.append('path')
+  .attr('class', 'trail-ribbon')
+  .style('fill', 'url(#trail-gradient)')
+  .style('stroke', 'none');
 
 function drawTrail() {
   if (!currentPathEl) return;
-  const dots = [];
-  for (let i = 0; i < TRAIL_DOTS; i++) {
-    const back = (i / (TRAIL_DOTS - 1)) * TRAIL_LENGTH_PX;
-    const dist = trailHeadDistance - back;
-    if (dist < 0) continue;
-    dots.push({ pt: currentPathEl.getPointAtLength(dist), i: i });
+  const headDist = trailHeadDistance;
+  const tailDist = Math.max(0, headDist - TRAIL_LENGTH_PX);
+  if (headDist - tailDist < 1) { trailRibbon.attr('d', null); return; }
+
+  const pts = [];
+  for (let i = 0; i <= TRAIL_SAMPLES; i++) {
+    const t = i / TRAIL_SAMPLES; // 0 at tail, 1 at the marker
+    const dist = tailDist + t * (headDist - tailDist);
+    const p = currentPathEl.getPointAtLength(dist);
+    const ahead = currentPathEl.getPointAtLength(Math.min(currentLength, dist + 0.5));
+    let dx = ahead.x - p.x, dy = ahead.y - p.y;
+    const len = Math.hypot(dx, dy) || 1;
+    dx /= len; dy /= len;
+    const nx = -dy, ny = dx;
+    const width = MARKER_DIAMETER * t;
+    pts.push({ x: p.x, y: p.y, nx: nx, ny: ny, width: width });
   }
-  const sel = gTrail.selectAll('circle.trail-dot').data(dots, function (d) { return d.i; });
-  sel.enter()
-    .append('circle')
-    .attr('class', 'trail-dot')
-    .merge(sel)
-    .attr('cx', function (d) { return d.pt.x; })
-    .attr('cy', function (d) { return d.pt.y; })
-    .attr('r', function (d) { return Math.max(0.4, 2.6 * (1 - d.i / TRAIL_DOTS)); })
-    .style('opacity', function (d) { return Math.max(0, 0.85 * (1 - d.i / TRAIL_DOTS)); });
-  sel.exit().remove();
+
+  const left = pts.map(function (p) { return [p.x + p.nx * p.width / 2, p.y + p.ny * p.width / 2]; });
+  const right = pts.map(function (p) { return [p.x - p.nx * p.width / 2, p.y - p.ny * p.width / 2]; }).reverse();
+  const outline = left.concat(right);
+  const d = 'M' + outline.map(function (pt) { return pt[0] + ',' + pt[1]; }).join('L') + 'Z';
+  trailRibbon.attr('d', d);
+
+  const tailPt = pts[0];
+  const headPt = pts[pts.length - 1];
+  trailGradient.attr('x1', tailPt.x).attr('y1', tailPt.y).attr('x2', headPt.x).attr('y2', headPt.y);
 }
 
 function clearTrail() {
   trailHeadDistance = 0;
-  gTrail.selectAll('circle.trail-dot').remove();
+  trailRibbon.attr('d', null);
 }
 
 const legLabel = document.getElementById('leg-label');
