@@ -5,45 +5,26 @@
 // (e.g. touch-and-goes at the same field).
 
 // Airport coordinates as [latitude, longitude]
-const airports = {
-  KABQ: [35.0389, -106.6083],
-  KAXX: [36.4220, -105.2900],
-  KBFL: [35.4336, -119.0570],
-  KCFT: [32.9569, -109.2110],
-  KCNM: [32.3375, -104.2630],
-  KDVT: [33.6883, -112.0830],
-  KEEO: [40.0486, -107.8860],
-  KELP: [31.8073, -106.3780],
-  KGOO: [39.2240, -121.0030],
-  KGUP: [35.5111, -108.7890],
-  KHHR: [33.9228, -118.3350],
-  KHND: [35.9728, -115.1340],
-  KHOB: [32.6875, -103.2170],
-  KICT: [37.6500, -97.4330],
-  KLAS: [36.0801, -115.1520],
-  KLAX: [33.9425, -118.4080],
-  KLGB: [33.8177, -118.1510],
-  KLRU: [32.2894, -106.9220],
-  KMCE: [37.2847, -120.5140],
-  KMEM: [35.0424, -89.9779],
-  KMRY: [36.5870, -121.8430],
-  KONM: [34.0225, -106.9030],
-  KPGA: [36.9261, -111.4480],
-  KPHX: [33.4342, -112.0120],
-  KRNO: [39.4991, -119.7680],
-  KSAD: [32.8548, -109.6350],
-  KSAN: [32.7338, -117.1930],
-  KSBA: [34.4262, -119.8400],
-  KSJC: [37.3626, -121.9290],
-  KSKX: [36.4582, -105.6720],
-  KSMX: [34.8989, -120.4570],
-  KSTS: [38.5090, -122.8130],
-  KSVC: [32.6365, -108.1560],
-  KTEB: [40.8501, -74.0608],
-  KTRM: [33.6267, -116.1600],
-  KTUS: [32.1161, -110.9410],
-  KVNY: [34.2098, -118.4900]
-};
+let airports = {};
+const airportsLoaded = fetch('airports.txt')
+  .then(function (r) { return r.text(); })
+  .then(function (text) {
+    const result = {};
+    text.split('\n').forEach(function (line) {
+      const parts = line.split(',');
+      if (parts.length !== 3) return;
+      const code = parts[0].trim();
+      const lat = parseFloat(parts[1]);
+      const lon = parseFloat(parts[2]);
+      if (!code || isNaN(lat) || isNaN(lon)) return;
+      result[code] = [lat, lon];
+    });
+    airports = result;
+  })
+  .catch(function (err) {
+    console.error('Failed to load airports.txt:', err);
+    airports = {};
+  });
 
 // Chronological sequence of airport codes from row 45 (left to right)
 let sequence = [];
@@ -81,9 +62,9 @@ let legs = [];
 // ---- SVG / projection setup ----
 const width = 975;
 const height = 610;
-const SPEED_PX_PER_MS = 0.16; // constant on-screen speed (slow, relaxing screensaver pacing)
-const MIN_LEG_MS = 550;       // shortest allowed leg duration (keeps same-airport hops visible)
-const MAX_LEG_MS = 5000;      // longest allowed leg duration (keeps very long legs from dragging)
+const SPEED_PX_PER_MS = 0.06; // constant on-screen speed (slow, relaxing screensaver pacing)
+const MIN_LEG_MS = 900;       // shortest allowed leg duration (keeps same-airport hops visible)
+const MAX_LEG_MS = 9000;      // longest allowed leg duration (keeps very long legs from dragging)
 let currentLegDuration = MIN_LEG_MS;
 
 const svg = d3.select('#map')
@@ -307,8 +288,8 @@ fetch('https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json')
       .attr('class', 'us-outline')
       .attr('d', geoPath);
 
-    drawAirports();
-    return sequenceLoaded.then(function () {
+    return Promise.all([sequenceLoaded, airportsLoaded]).then(function () {
+      drawAirports();
       legs = buildLegs(sequence);
       console.log('Row 45 airport codes read:', sequence.length);
       console.log('Valid flight legs created:', legs.length);
