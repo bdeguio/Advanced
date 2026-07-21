@@ -105,7 +105,7 @@ function drawTrail() {
     .merge(sel)
     .attr('cx', function (d) { return d.x; })
     .attr('cy', function (d) { return d.y; })
-    .attr('r', function (d, i) { return 1 + (1000 * (i + 1)) / n; })
+    .attr('r', function (d, i) { return 1 + (4 * (i + 1)) / n; })
     .style('opacity', function (d, i) { return (0.85 * (i + 1)) / n; });
   sel.exit().remove();
 }
