@@ -1,132 +1,253 @@
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
-html, body {
+:root {
+  color-scheme: dark;
+  --bg: #000;
+  --fg: #fff;
+  --muted: rgba(255, 255, 255, 0.62);
+  --faint: rgba(255, 255, 255, 0.28);
+  --panel: rgba(18, 18, 18, 0.72);
+  --panel-hover: rgba(255, 255, 255, 0.96);
+}
+
+html,
+body {
   margin: 0;
   padding: 0;
   width: 100%;
+  min-width: 320px;
   height: 100%;
-  background: #000;
-  color: #fff;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.035), transparent 40%),
+    var(--bg);
+  color: var(--fg);
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Display",
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  overflow: hidden;
 }
 
 body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
+}
+
+button {
+  font: inherit;
 }
 
 #header {
-  text-align: center;
-  padding: 0.75rem 1rem 0.5rem;
+  position: relative;
+  z-index: 2;
   flex: 0 0 auto;
+  padding: 0.9rem 1rem 0.35rem;
+  text-align: center;
+  pointer-events: none;
 }
 
 #header h1 {
-  margin: 0 0 0.25rem;
-  font-size: 1.1rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  color: #fff;
+  margin: 0 0 0.22rem;
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 1.05rem;
+  font-weight: 590;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 #leg-label {
-  font-size: 1rem;
+  min-height: 1.25em;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.96rem;
+  font-weight: 470;
   font-variant-numeric: tabular-nums;
-  color: #fff;
-  min-height: 1.2em;
+  letter-spacing: 0.025em;
 }
 
 #map-wrap {
+  position: relative;
   flex: 1 1 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 0.5rem;
   min-height: 0;
+  padding: 0 0.65rem;
+  overflow: hidden;
 }
 
 #map {
+  display: block;
   width: 100%;
   height: 100%;
-  max-width: 1100px;
-  max-height: 78vh;
-  display: block;
+  max-width: 1180px;
+  max-height: 80vh;
+  overflow: visible;
 }
 
 .us-outline {
   fill: none;
-  stroke: #ffffff;
-  stroke-width: 1;
+  stroke: rgba(255, 255, 255, 0.34);
+  stroke-width: 0.85;
+  stroke-linecap: round;
   stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
 }
 
 .airport-dot {
-  fill: rgba(255, 255, 255, 0.55);
-}
-
-.leg-path-hidden {
-  fill: none;
-  stroke: none;
+  fill: rgba(255, 255, 255, 0.34);
+  pointer-events: none;
 }
 
 .leg-path-dim {
   fill: none;
-  stroke: #ffffff;
-  stroke-opacity: 0.28;
-  stroke-width: 1;
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 0.85;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
 }
 
 .marker {
-  fill: #ffffff;
-  filter: drop-shadow(0 0 6px rgba(255,255,255,0.95)) drop-shadow(0 0 2px rgba(255,255,255,1));
+  fill: #fff;
+  filter:
+    drop-shadow(0 0 2px rgba(255, 255, 255, 1))
+    drop-shadow(0 0 7px rgba(255, 255, 255, 0.88))
+    drop-shadow(0 0 18px rgba(255, 255, 255, 0.36));
+  pointer-events: none;
 }
 
-.trail-ribbon {
+.trail-segment {
+  fill: none;
+  stroke: #fff;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter:
+    drop-shadow(0 0 2px rgba(255, 255, 255, 0.56))
+    drop-shadow(0 0 7px rgba(255, 255, 255, 0.18));
+  vector-effect: non-scaling-stroke;
   pointer-events: none;
-  filter: drop-shadow(0 0 3px rgba(255,255,255,0.5));
 }
 
 #controls {
+  position: relative;
+  z-index: 2;
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.6rem;
+  gap: 0.55rem;
   flex-wrap: wrap;
-  padding: 0.75rem 1rem 1rem;
+  padding: 0.65rem 1rem 1rem;
 }
 
 #controls button {
-  background: #111;
-  color: #fff;
-  border: 1px solid #fff;
-  border-radius: 4px;
-  padding: 0.5rem 1rem;
-  font-size: 0.9rem;
+  appearance: none;
+  min-width: 5.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 999px;
+  padding: 0.52rem 1rem;
+  background: var(--panel);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.86rem;
+  font-weight: 520;
+  letter-spacing: 0.015em;
   cursor: pointer;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease,
+    opacity 160ms ease;
 }
 
 #controls button:hover:not(:disabled) {
-  background: #fff;
+  background: var(--panel-hover);
   color: #000;
+  border-color: #fff;
+  transform: translateY(-1px);
+}
+
+#controls button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+#controls button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
 }
 
 #controls button:disabled {
-  opacity: 0.4;
+  opacity: 0.3;
   cursor: default;
 }
 
 #progress-label {
-  font-size: 0.8rem;
-  color: #aaa;
-  min-width: 100px;
+  min-width: 108px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.025em;
   text-align: center;
 }
 
-@media (max-width: 600px) {
-  #header h1 { font-size: 0.95rem; }
-  #leg-label { font-size: 0.85rem; }
-  #map { max-height: 62vh; }
-  #controls button { padding: 0.45rem 0.8rem; font-size: 0.85rem; }
+@media (max-width: 700px) {
+  #header {
+    padding-top: 0.75rem;
+  }
+
+  #header h1 {
+    font-size: 0.9rem;
+  }
+
+  #leg-label {
+    font-size: 0.84rem;
+  }
+
+  #map-wrap {
+    padding-inline: 0.25rem;
+  }
+
+  #map {
+    max-height: 66vh;
+  }
+
+  #controls {
+    gap: 0.42rem;
+    padding: 0.55rem 0.65rem 0.75rem;
+  }
+
+  #controls button {
+    min-width: 4.6rem;
+    padding: 0.46rem 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  #progress-label {
+    width: 100%;
+    min-width: 0;
+    order: -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #controls button {
+    transition: none;
+  }
+
+  .marker,
+  .trail-segment {
+    filter: none;
+  }
 }
