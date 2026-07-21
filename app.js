@@ -93,7 +93,7 @@ const marker = svg.append('circle')
 
 // Shooting-star tail: remembers recent marker positions and renders them
 // as shrinking, fading dots behind the bright lead marker.
-const TRAIL_LENGTH = 200;
+const TRAIL_LENGTH = 14;
 let trailPoints = [];
 
 function drawTrail() {
@@ -105,7 +105,7 @@ function drawTrail() {
     .merge(sel)
     .attr('cx', function (d) { return d.x; })
     .attr('cy', function (d) { return d.y; })
-    .attr('r', function (d, i) { return 1 + (4 * (i + 1)) / n; })
+    .attr('r', function (d, i) { return 1 + (20 * (i + 1)) / n; })
     .style('opacity', function (d, i) { return (0.85 * (i + 1)) / n; });
   sel.exit().remove();
 }
