@@ -74,7 +74,10 @@ console.log('Valid flight legs created:', legs.length);
 // ---- SVG / projection setup ----
 const width = 975;
 const height = 610;
-const LEG_DURATION = 900; // ms per leg (increase to slow down, decrease to speed up)
+const SPEED_PX_PER_MS = 0.45; // constant on-screen speed (screensaver-style pacing)
+const MIN_LEG_MS = 220;       // shortest allowed leg duration (keeps same-airport hops visible)
+const MAX_LEG_MS = 3200;      // longest allowed leg duration (keeps very long legs from dragging)
+let currentLegDuration = MIN_LEG_MS;
 
 const svg = d3.select('#map')
   .attr('viewBox', '0 0 ' + width + ' ' + height);
@@ -91,33 +94,36 @@ const marker = svg.append('circle')
   .attr('r', 4.5)
   .style('display', 'none');
 
-// Shooting-star tail: remembers recent marker positions and renders them
-// as shrinking, fading dots behind the bright lead marker.
-const TRAIL_LENGTH = 14;
-let trailPoints = [];
+// Shooting-star tail: sampled by distance behind the marker (not by frame),
+// so its on-screen length stays constant no matter how fast the marker moves.
+const MARKER_DIAMETER = 9; // matches marker r * 2
+const TRAIL_LENGTH_PX = MARKER_DIAMETER * 20; // ~20 marker-diameters long
+const TRAIL_DOTS = 26; // dots sampled along the tail for a smooth fade
+let trailHeadDistance = 0;
 
 function drawTrail() {
-  const n = trailPoints.length;
-  const sel = gTrail.selectAll('circle.trail-dot').data(trailPoints);
+  if (!currentPathEl) return;
+  const dots = [];
+  for (let i = 0; i < TRAIL_DOTS; i++) {
+    const back = (i / (TRAIL_DOTS - 1)) * TRAIL_LENGTH_PX;
+    const dist = trailHeadDistance - back;
+    if (dist < 0) continue;
+    dots.push({ pt: currentPathEl.getPointAtLength(dist), i: i });
+  }
+  const sel = gTrail.selectAll('circle.trail-dot').data(dots, function (d) { return d.i; });
   sel.enter()
     .append('circle')
     .attr('class', 'trail-dot')
     .merge(sel)
-    .attr('cx', function (d) { return d.x; })
-    .attr('cy', function (d) { return d.y; })
-    .attr('r', function (d, i) { return 1 + (4 * (i + 1)) / n; })
-    .style('opacity', function (d, i) { return (0.85 * (i + 1)) / n; });
+    .attr('cx', function (d) { return d.pt.x; })
+    .attr('cy', function (d) { return d.pt.y; })
+    .attr('r', function (d) { return Math.max(0.4, 2.6 * (1 - d.i / TRAIL_DOTS)); })
+    .style('opacity', function (d) { return Math.max(0, 0.85 * (1 - d.i / TRAIL_DOTS)); });
   sel.exit().remove();
 }
 
-function pushTrailPoint(pt) {
-  trailPoints.push({ x: pt.x, y: pt.y });
-  if (trailPoints.length > TRAIL_LENGTH) trailPoints.shift();
-  drawTrail();
-}
-
 function clearTrail() {
-  trailPoints = [];
+  trailHeadDistance = 0;
   gTrail.selectAll('circle.trail-dot').remove();
 }
 
@@ -189,6 +195,7 @@ function setupLeg(index) {
     .attr('d', d)
     .node();
   currentLength = currentPathEl.getTotalLength();
+  currentLegDuration = Math.min(MAX_LEG_MS, Math.max(MIN_LEG_MS, currentLength / SPEED_PX_PER_MS));
   legStartTime = null;
   clearTrail();
 
@@ -202,22 +209,23 @@ function animate(ts) {
   if (!playing || !currentPathEl) return;
   if (!legStartTime) legStartTime = ts;
   const elapsed = ts - legStartTime;
-  const t = Math.min(elapsed / LEG_DURATION, 1);
-  const pt = currentPathEl.getPointAtLength(t * currentLength);
+  const rawT = Math.min(elapsed / currentLegDuration, 1);
+  const easedT = d3.easeCubicInOut(rawT); // smooth accel/decel, like a screensaver
+  const dist = easedT * currentLength;
+  const pt = currentPathEl.getPointAtLength(dist);
   marker.attr('cx', pt.x).attr('cy', pt.y);
-  pushTrailPoint(pt);
+  trailHeadDistance = dist;
+  drawTrail();
 
-  if (t >= 1) {
+  if (rawT >= 1) {
     d3.select(currentPathEl).attr('class', 'leg-path-dim');
     const nextIndex = currentLegIndex + 1;
     if (nextIndex < legs.length) {
       setupLeg(nextIndex);
-      animFrame = requestAnimationFrame(animate);
     } else {
-      playing = false;
-      updateButtons();
-      legLabel.textContent = 'Route complete (' + legs.length + ' legs)';
+      setupLeg(0); // loop back to the start and keep flying
     }
+    animFrame = requestAnimationFrame(animate);
   } else {
     animFrame = requestAnimationFrame(animate);
   }
@@ -247,7 +255,7 @@ function restart() {
   marker.style('display', 'none');
   clearTrail();
   if (legs.length) {
-    setupLeg(0);
+    play();
   } else {
     legLabel.textContent = 'No valid legs to play';
   }
@@ -280,7 +288,7 @@ fetch('https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json')
 
     drawAirports();
     if (legs.length) {
-      setupLeg(0);
+      play(); // autoplay on load
     } else {
       legLabel.textContent = 'No valid legs to play';
     }
