@@ -48,7 +48,10 @@ let airports = {};
 let sequence = [];
 let legs = [];
 
+let initialLegIndex = 0;
 let currentLegIndex = -1;
+let currentPathData = null;
+
 let motionPath = null;
 let motionPathLength = 0;
 let currentLegDuration = CONFIG.minLegMs;
@@ -134,7 +137,6 @@ function buildLegs(codes) {
       continue;
     }
 
-    // Ignore zero-distance consecutive repeats.
     if (from === to) {
       continue;
     }
@@ -266,11 +268,6 @@ function addTrailSample(point, now, force = false) {
       time: now
     });
   } else if (previous) {
-    /*
-     * Keep the head of the trail alive while the marker
-     * is stationary. Older samples continue expiring,
-     * so the tail fades from its oldest end first.
-     */
     previous.time = now;
   }
 
@@ -471,15 +468,14 @@ function setupLeg(index, now) {
     );
   }
 
+  /*
+   * Store the current route but do not draw it yet.
+   * The line appears only after arrival.
+   */
+  currentPathData = pathData;
+
   removeMotionPath();
 
-  /*
-   * A hidden temporary path is used for
-   * getTotalLength() and getPointAtLength().
-   * The visible dim route line is added later,
-   * in finishCurrentLeg(), once the marker
-   * has reached the destination.
-   */
   motionPath =
     document.createElementNS(
       "http://www.w3.org/2000/svg",
@@ -549,12 +545,13 @@ function elapsedInCurrentPhase(now) {
 }
 
 function finishCurrentLeg(now) {
-  if (motionPath) {
-    /*
-     * Reveal the completed route now that
-     * the marker has reached the destination.
-     * It remains as a dim completed path.
-     */
+  removeMotionPath();
+
+  /*
+   * Draw the route only after the dot
+   * has reached the destination.
+   */
+  if (currentPathData) {
     gLegs
       .append("path")
       .attr(
@@ -563,13 +560,12 @@ function finishCurrentLeg(now) {
       )
       .attr(
         "d",
-        motionPath.getAttribute("d")
+        currentPathData
       );
 
     trimCompletedPaths();
+    currentPathData = null;
   }
-
-  removeMotionPath();
 
   phase = "holding";
   phaseStartedAt = now;
@@ -583,23 +579,13 @@ function advanceLeg(now) {
   );
 }
 
-function randomLegIndex() {
-  return Math.floor(
-    Math.random() * legs.length
-  );
-}
-
 function animationTick(now) {
   if (
     playing &&
     phase === "idle"
   ) {
-    /*
-     * Begin at a random point in the
-     * sequence rather than leg 0.
-     */
     setupLeg(
-      randomLegIndex(),
+      initialLegIndex,
       now
     );
   }
@@ -643,10 +629,6 @@ function animationTick(now) {
     playing &&
     phase === "holding"
   ) {
-    /*
-     * Refresh the trail head while
-     * resting at the airport.
-     */
     if (markerPosition) {
       addTrailSample(
         markerPosition,
@@ -662,11 +644,6 @@ function animationTick(now) {
     }
   }
 
-  /*
-   * Trail rendering continues even while paused.
-   * This lets the tail fade naturally instead
-   * of freezing in place.
-   */
   drawTrail(now);
 
   if (
@@ -723,11 +700,6 @@ function pause() {
   playing = false;
 
   updateButtons();
-
-  /*
-   * Keep the animation loop alive
-   * long enough for the tail to fade.
-   */
   ensureAnimationLoop();
 }
 
@@ -736,6 +708,7 @@ function restart() {
   phase = "idle";
 
   currentLegIndex = -1;
+  currentPathData = null;
   phaseStartedAt = 0;
   elapsedBeforePause = 0;
 
@@ -843,6 +816,14 @@ Promise.all([
       legs =
         buildLegs(sequence);
 
+      initialLegIndex =
+        legs.length > 0
+          ? Math.floor(
+              Math.random() *
+                legs.length
+            )
+          : 0;
+
       console.log(
         "Airport codes read:",
         sequence.length
@@ -851,6 +832,11 @@ Promise.all([
       console.log(
         "Valid flight legs created:",
         legs.length
+      );
+
+      console.log(
+        "Starting at random leg:",
+        initialLegIndex + 1
       );
 
       if (legs.length > 0) {
