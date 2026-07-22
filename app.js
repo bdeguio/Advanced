@@ -471,24 +471,14 @@ function setupLeg(index, now) {
     );
   }
 
-  /*
-   * Add the route to the visible map.
-   * It remains as a dim completed path.
-   */
-  gLegs
-    .append("path")
-    .attr(
-      "class",
-      "leg-path-dim"
-    )
-    .attr("d", pathData);
-
-  trimCompletedPaths();
   removeMotionPath();
 
   /*
-   * A hidden temporary path is used only
-   * for getTotalLength() and getPointAtLength().
+   * A hidden temporary path is used for
+   * getTotalLength() and getPointAtLength().
+   * The visible dim route line is added later,
+   * in finishCurrentLeg(), once the marker
+   * has reached the destination.
    */
   motionPath =
     document.createElementNS(
@@ -559,6 +549,26 @@ function elapsedInCurrentPhase(now) {
 }
 
 function finishCurrentLeg(now) {
+  if (motionPath) {
+    /*
+     * Reveal the completed route now that
+     * the marker has reached the destination.
+     * It remains as a dim completed path.
+     */
+    gLegs
+      .append("path")
+      .attr(
+        "class",
+        "leg-path-dim"
+      )
+      .attr(
+        "d",
+        motionPath.getAttribute("d")
+      );
+
+    trimCompletedPaths();
+  }
+
   removeMotionPath();
 
   phase = "holding";
@@ -573,12 +583,25 @@ function advanceLeg(now) {
   );
 }
 
+function randomLegIndex() {
+  return Math.floor(
+    Math.random() * legs.length
+  );
+}
+
 function animationTick(now) {
   if (
     playing &&
     phase === "idle"
   ) {
-    setupLeg(0, now);
+    /*
+     * Begin at a random point in the
+     * sequence rather than leg 0.
+     */
+    setupLeg(
+      randomLegIndex(),
+      now
+    );
   }
 
   if (
